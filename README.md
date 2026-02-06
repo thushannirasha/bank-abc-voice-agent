@@ -57,6 +57,21 @@ Sample request body:
 Enable tracing by setting `LANGCHAIN_TRACING_V2=true` and `LANGCHAIN_API_KEY` in your backend `.env`.
 Run a scenario (lost card or balance check) and capture the trace URL or screenshot in LangSmith.
 
+## Vercel Deployment (Backend on Vercel)
+This repo includes a Vercel Python serverless entrypoint at [api/index.py](api/index.py) and a root [vercel.json](vercel.json).
+
+Steps:
+1. Push the repo to GitHub.
+2. In Vercel, import the repo.
+3. Set these Environment Variables in the Vercel project:
+	- `LANGCHAIN_TRACING_V2=true`
+	- `LANGCHAIN_API_KEY=...`
+	- `LANGCHAIN_PROJECT=bank-abc-voice-agent`
+	- `ALLOWED_ORIGINS=https://<your-frontend>.vercel.app`
+4. Deploy. Your API base URL will be the Vercel project URL.
+
+Then set `VITE_API_BASE_URL` in the frontend Vercel project to that API base URL.
+
 ## Notes / Trade-offs
 - This POC uses deterministic routing (keyword-based) to keep the graph lightweight.
 - Voice input is simulated via text in the UI for faster iteration.
