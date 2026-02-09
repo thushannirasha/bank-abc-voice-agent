@@ -44,6 +44,7 @@ class RouteLabel(str, Enum):
     DIGITAL_SUPPORT = "digital_support"
     TRANSFERS = "transfers"
     ACCOUNT_CLOSURE = "account_closure"
+    CLARIFY = "clarify"
     FALLBACK = "fallback"
 
 
@@ -187,9 +188,29 @@ def handle_account_servicing(state: AgentState) -> AgentState:
     return state
 
 
+@traceable(name="handle_clarify")
+def handle_clarify(state: AgentState) -> AgentState:
+    state["response"] = (
+        "When you say account details, do you want your balance, recent transactions, or a profile update?"
+    )
+    return state
+
+
 @traceable(name="handle_stub")
 def handle_stub(state: AgentState) -> AgentState:
     route = state["route"]
+    text = _normalize(state["message"])
+    if route == "account_opening" and any(k in text for k in ["next week", "schedule", "appointment", "callback"]):
+        state["response"] = (
+            "Great, I can set up an appointment or a callback. Which day and time next week works best, "
+            "and what is the best phone number to reach you?"
+        )
+        return state
+    if route == "transfers" and any(k in text for k in ["sent money", "didn't go through", "did not go through"]):
+        state["response"] = (
+            "Was this a bank transfer or a bill payment? If it's a transfer, was it to a person or a beneficiary?"
+        )
+        return state
     responses = {
         "account_opening": "I can help with onboarding and eligibility. Would you like to schedule an appointment?",
         "digital_support": "I can help with login, OTP, or app issues. What error are you seeing?",
@@ -206,6 +227,7 @@ def build_graph():
     graph.add_node("route_intent", route_intent)
     graph.add_node("card_atm", handle_card_atm)
     graph.add_node("account_servicing", handle_account_servicing)
+    graph.add_node("clarify", handle_clarify)
     graph.add_node("stub", handle_stub)
 
     graph.set_entry_point("route_intent")
@@ -215,11 +237,14 @@ def build_graph():
             return "card_atm"
         if state["route"] in {"account_servicing"}:
             return "account_servicing"
+        if state["route"] in {"clarify"}:
+            return "clarify"
         return "stub"
 
     graph.add_conditional_edges("route_intent", _select_route)
     graph.add_edge("card_atm", END)
     graph.add_edge("account_servicing", END)
+    graph.add_edge("clarify", END)
     graph.add_edge("stub", END)
 
     return graph.compile()
