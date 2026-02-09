@@ -1,11 +1,22 @@
 from __future__ import annotations
 
+import logging
+import os
+from enum import Enum
 from typing import Optional, TypedDict
+from dotenv import load_dotenv
 
+from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph
 from langsmith import traceable
+from pydantic import BaseModel, Field
 
 from .tools import block_card, get_account_balance, get_recent_transactions, verify_identity
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
+load_dotenv()
 
 
 class AgentState(TypedDict):
@@ -26,32 +37,63 @@ def _normalize(text: str) -> str:
     return text.lower().strip()
 
 
+class RouteLabel(str, Enum):
+    CARD_ATM = "card_atm"
+    ACCOUNT_SERVICING = "account_servicing"
+    ACCOUNT_OPENING = "account_opening"
+    DIGITAL_SUPPORT = "digital_support"
+    TRANSFERS = "transfers"
+    ACCOUNT_CLOSURE = "account_closure"
+    FALLBACK = "fallback"
+
+
+class RouteDecision(BaseModel):
+    route: RouteLabel = Field(..., description="Best matching route for the user request")
+    reason: str = Field(..., description="Short reason for the route")
+
+
+_LLM = ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=os.getenv("OPENAI_API_KEY"))
+
+
 @traceable(name="route_intent")
 def route_intent(state: AgentState) -> AgentState:
     text = _normalize(state["message"])
-    route = "fallback"
+    route = RouteLabel.FALLBACK
+    system_prompt = (
+        "You are an intent router for a bank voice agent. "
+        "Choose exactly one route label for the user message. "
+        "If the user says 'account details' without specifying which details, choose 'clarify'. "
+        "If the user says their card is fine but the app login is broken, choose 'digital_support'. "
+        "Valid routes: card_atm, account_servicing, account_opening, digital_support, "
+        "transfers, account_closure, clarify, fallback."
+    )
 
-    card_keywords = ["card", "atm", "cash", "declined", "stolen", "lost", "pin failed"]
-    account_keywords = ["balance", "statement", "transaction", "address", "profile", "account details"]
-    opening_keywords = ["open account", "onboarding", "documents", "eligibility", "appointment"]
-    digital_keywords = ["login", "otp", "app", "device", "crash"]
-    transfer_keywords = ["transfer", "bill", "payment", "beneficiary", "pending"]
-    closure_keywords = ["close", "closure", "retention", "cancel account"]
+    try:
+        decision = _LLM.with_structured_output(RouteDecision).invoke(
+            [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": text},
+            ]
+        )
+        route = decision.route
+        logger.info("Routing via LLM: %s (%s)", route, decision.reason)
+    except Exception as exc:
+        logger.exception("LLM routing failed, falling back to keyword routing: %s", exc)
+        if "card" in text or "atm" in text:
+            route = RouteLabel.CARD_ATM
+        elif "account" in text or "balance" in text or "statement" in text:
+            route = RouteLabel.ACCOUNT_SERVICING
+        elif "open" in text or "onboarding" in text:
+            route = RouteLabel.ACCOUNT_OPENING
+        elif "login" in text or "otp" in text or "app" in text:
+            route = RouteLabel.DIGITAL_SUPPORT
+        elif "transfer" in text or "bill" in text or "payment" in text:
+            route = RouteLabel.TRANSFERS
+        elif "close" in text or "deactivate" in text or "retention" in text:
+            route = RouteLabel.ACCOUNT_CLOSURE
 
-    if any(k in text for k in card_keywords):
-        route = "card_atm"
-    elif any(k in text for k in account_keywords):
-        route = "account_servicing"
-    elif any(k in text for k in opening_keywords):
-        route = "account_opening"
-    elif any(k in text for k in digital_keywords):
-        route = "digital_support"
-    elif any(k in text for k in transfer_keywords):
-        route = "transfers"
-    elif any(k in text for k in closure_keywords):
-        route = "account_closure"
-
-    state["route"] = route
+    logger.info("Routing message '%s' to route '%s'", state["message"], route)
+    state["route"] = route.value if isinstance(route, RouteLabel) else route
     return state
 
 
@@ -78,6 +120,10 @@ def handle_card_atm(state: AgentState) -> AgentState:
         card_id = "card_unknown"
         if state.get("customer_id"):
             card_id = f"card_for_{state['customer_id']}"
+        verification_message = _ensure_verification(state)
+        if verification_message:
+            state["response"] = verification_message
+            return state
         response = block_card(card_id, reason="reported lost/stolen")
         state["response"] = (
             f"{response} I can also order a replacement. Would you like a new card sent to your address on file?"

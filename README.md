@@ -20,7 +20,7 @@ Full-stack POC for the "Bank ABC" voice agent using FastAPI, LangGraph, LangSmit
 ## Backend Setup
 1. Create a virtual environment and install dependencies:
 	- `pip install -r backend/requirements.txt`
-2. Copy [backend/.env.example](backend/.env.example) to `backend/.env` and add your LangSmith API key.
+2. Copy [backend/.env.example](backend/.env.example) to `backend/.env` and add your LangSmith + OpenAI API keys.
 3. Run the API:
 	- `uvicorn app.main:app --reload --app-dir backend`
 
