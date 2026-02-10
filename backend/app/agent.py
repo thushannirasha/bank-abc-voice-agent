@@ -6,7 +6,7 @@ from enum import Enum
 from typing import Optional, TypedDict
 from dotenv import load_dotenv
 
-from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import END, StateGraph
 from langsmith import traceable
 from pydantic import BaseModel, Field
@@ -52,8 +52,13 @@ class RouteDecision(BaseModel):
     route: RouteLabel = Field(..., description="Best matching route for the user request")
     reason: str = Field(..., description="Short reason for the route")
 
-
-_LLM = ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=os.getenv("OPENAI_API_KEY"))
+_LLM = ChatGoogleGenerativeAI(
+    model="gemini-3-flash-preview",
+    temperature=1.0,  # Gemini 3.0+ defaults to 1.0
+    max_tokens=None,
+    timeout=None,
+    api_key=os.getenv("GENAI_API_KEY")
+)
 
 
 @traceable(name="route_intent")
@@ -64,6 +69,7 @@ def route_intent(state: AgentState) -> AgentState:
         "You are an intent router for a bank voice agent. "
         "Choose exactly one route label for the user message. "
         "If the user says 'account details' without specifying which details, choose 'clarify'. "
+        "If the user says 'personal details' or wants to update their profile details, choose 'account_servicing'. "
         "If the user says their card is fine but the app login is broken, choose 'digital_support'. "
         "Valid routes: card_atm, account_servicing, account_opening, digital_support, "
         "transfers, account_closure, clarify, fallback."
