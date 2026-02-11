@@ -21,26 +21,29 @@ Full-stack POC for the "Bank ABC" voice agent using FastAPI, LangGraph, LangSmit
 1. Prereqs:
 	- Python 3.10+ (3.11 recommended)
 	- Node.js 18+
-	- A LangSmith API key and OpenAI API key
+	- A LangSmith API key and GenAI API key
 2. Clone and open the repo.
 3. Backend setup (see [backend](backend)):
-	- `pip install -r backend/requirements.txt`
-	- `cp backend/.env.example backend/.env` and add keys
-	- `uvicorn app.main:app --reload --app-dir backend`
+	- `cd backend`
+	- `pip install -r requirements.txt`
+	- `cp .env.example .env` and add keys
+	- `uvicorn app.main:app --reload`
 4. Frontend setup (see [frontend](frontend)):
+	- `cd frontend`
 	- `npm install`
-	- `cp frontend/.env.example frontend/.env` if needed
+	- `cp .env.example .env` if needed
 	- `npm run dev`
 5. Verify:
 	- Backend health: `GET /health`
 	- UI opens at the Vite dev URL
 
 ## Backend Setup
-1. Create a virtual environment and install dependencies:
-	- `pip install -r backend/requirements.txt`
-2. Copy [backend/.env.example](backend/.env.example) to `backend/.env` and add your LangSmith + OpenAI API keys.
-3. Run the API:
-	- `uvicorn app.main:app --reload --app-dir backend`
+1. Go to the backend directory from the project root.
+2. Create a virtual environment and install dependencies:
+	- `pip install -r requirements.txt`
+3. Copy [.env.example](.env.example) to `.env` and add your LangSmith + GenAI API keys.
+4. Run the API:
+	- `uvicorn app.main:app --reload`
 
 API endpoints:
 - `GET /health`
@@ -56,10 +59,11 @@ Sample request body:
 ```
 
 ## Frontend Setup
-1. Install dependencies:
+1. Go to the frontend directory from the project root.
+2. Install dependencies:
 	- `npm install`
-2. Copy [frontend/.env.example](frontend/.env.example) to `frontend/.env` if needed.
-3. Run the UI:
+3. Copy [.env.example](.env.example) to `.env` if needed.
+4. Run the UI:
 	- `npm run dev`
 
 ## Test Credentials
@@ -92,9 +96,9 @@ Steps:
 Then set `VITE_API_BASE_URL` in the frontend Vercel project to that API base URL.
 
 ## Notes / Trade-offs
-- This POC uses deterministic routing (keyword-based) to keep the graph lightweight.
-- Voice input is simulated via text in the UI for faster iteration.
-- PIN-based verification is mocked and not tied to a real auth system.
-- Tool outputs are stubbed for demo speed; swap with real integrations for production.
-- No long-term memory or conversation history storage beyond the session.
-- Observability is focused on LangSmith traces; no metrics or alerting pipeline.
+- Routing uses Gemini structured output with a keyword fallback; no supervised intent model.
+- Account data and tools are mocked (`_FAKE_CUSTOMERS`, balances, transactions, block card).
+- Session history is stored in-memory in the API process; no persistence or multi-instance sync.
+- Identity verification is PIN-only and not tied to real auth or step-up verification.
+- Voice is browser-based speech-to-text and speech synthesis; no telephony or streaming audio.
+- Observability is limited to LangSmith traces; no metrics, alerts, or log aggregation.
