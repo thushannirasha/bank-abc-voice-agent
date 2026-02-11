@@ -17,6 +17,24 @@ Full-stack POC for the "Bank ABC" voice agent using FastAPI, LangGraph, LangSmit
 - Backend: [backend](backend)
 - Frontend: [frontend](frontend)
 
+## Setup Instructions
+1. Prereqs:
+	- Python 3.10+ (3.11 recommended)
+	- Node.js 18+
+	- A LangSmith API key and OpenAI API key
+2. Clone and open the repo.
+3. Backend setup (see [backend](backend)):
+	- `pip install -r backend/requirements.txt`
+	- `cp backend/.env.example backend/.env` and add keys
+	- `uvicorn app.main:app --reload --app-dir backend`
+4. Frontend setup (see [frontend](frontend)):
+	- `npm install`
+	- `cp frontend/.env.example frontend/.env` if needed
+	- `npm run dev`
+5. Verify:
+	- Backend health: `GET /health`
+	- UI opens at the Vite dev URL
+
 ## Backend Setup
 1. Create a virtual environment and install dependencies:
 	- `pip install -r backend/requirements.txt`
@@ -67,7 +85,8 @@ Steps:
 	- `LANGCHAIN_TRACING_V2=true`
 	- `LANGCHAIN_API_KEY=...`
 	- `LANGCHAIN_PROJECT=bank-abc-voice-agent`
-	- `ALLOWED_ORIGINS=https://<your-frontend>.vercel.app`
+	- `ALLOWED_ORIGINS=https://bank-abc-voice-agent-1x9q.vercel.app`
+	- `GENAI_API_KEY=...`
 4. Deploy. Your API base URL will be the Vercel project URL.
 
 Then set `VITE_API_BASE_URL` in the frontend Vercel project to that API base URL.
@@ -75,3 +94,7 @@ Then set `VITE_API_BASE_URL` in the frontend Vercel project to that API base URL
 ## Notes / Trade-offs
 - This POC uses deterministic routing (keyword-based) to keep the graph lightweight.
 - Voice input is simulated via text in the UI for faster iteration.
+- PIN-based verification is mocked and not tied to a real auth system.
+- Tool outputs are stubbed for demo speed; swap with real integrations for production.
+- No long-term memory or conversation history storage beyond the session.
+- Observability is focused on LangSmith traces; no metrics or alerting pipeline.
